@@ -30,78 +30,71 @@ if (basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SEL
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
     
     <style>
-        body { 
-          background-color: var(--bg-color);
-          background-image: none;
-        }
-        
+        /* Base Shell Layout - Core spacing only, design in style.css */
         .main-content {
           margin-left: var(--sidebar-width); 
-          padding: 24px;
-          min-height: calc(100vh - var(--navbar-height));
-          transition: all 0.3s ease;
-        }
-
-        @media (max-width: 991px) {
-            .main-content { margin-left: 0; padding: 16px; }
+          padding: 2rem;
+          min-height: calc(100vh - 70px);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .navbar-custom {
-            height: var(--navbar-height);
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-bottom: 1px solid #f1f5f9;
-            padding: 0 24px;
+            height: 70px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+            padding: 0 2rem;
             margin-left: var(--sidebar-width);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
             z-index: 1030;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Collapsed Sidebar Support */
         body.sidebar-collapsed .main-content,
         body.sidebar-collapsed .navbar-custom {
             margin-left: 0;
         }
-        body.sidebar-collapsed .sidebar {
-            transform: translateX(-100%);
-        }
 
         @media (max-width: 991px) {
-            .navbar-custom { margin-left: 0; padding: 0 16px; }
+            .main-content, .navbar-custom { margin-left: 0 !important; padding: 1.5rem !important; }
         }
 
         .user-pill {
             display: flex;
             align-items: center;
-            background: #f8fafc;
-            padding: 4px 12px;
-            border-radius: 10px;
-            border: 1px solid #f1f5f9;
+            background: #ffffff;
+            padding: 6px 14px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         }
 
         .user-pill:hover { 
-            background: #f1f5f9;
-            border-color: #e2e8f0;
+            background: #f8fafc;
+            border-color: var(--primary);
+            transform: translateY(-1px);
         }
 
         .user-pill .avatar {
-            width: 28px;
-            height: 28px;
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
             color: #fff;
-            border-radius: 8px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-right: 10px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            margin-right: 12px;
+            box-shadow: 0 4px 8px rgba(var(--primary-rgb), 0.2);
         }
     </style>
 </head>
@@ -129,7 +122,7 @@ if (basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SEL
                 <a href="<?php echo BASE_URL; ?>modules/reports/index.php" class="sidebar-link <?php echo strpos($current_page, 'report') !== false ? 'active' : ''; ?>"><i class="bi bi-bar-chart"></i> Report Builder</a>
                 <div class="px-4 py-2 small fw-bold text-muted mt-3">SYSTEM</div>
                 <a href="<?php echo BASE_URL; ?>modules/settings/roles.php" class="sidebar-link"><i class="bi bi-gear"></i> Settings</a>
-                <a href="<?php echo BASE_URL; ?>logout.php" class="sidebar-link text-danger"><i class="bi bi-box-arrow-left"></i> Sign Out</a>
+                <a href="<?php echo BASE_URL; ?>logout.php" onclick="return confirm('Are you sure you want to sign out?')" class="sidebar-link text-danger"><i class="bi bi-box-arrow-left"></i> Sign Out</a>
             </div>
         </div>
     </div>
@@ -158,7 +151,7 @@ if (basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SEL
                 <li><a class="dropdown-item py-2 rounded" href="<?php echo BASE_URL; ?>profile.php"><i class="bi bi-person me-2"></i> My Profile</a></li>
                 <li><a class="dropdown-item py-2 rounded" href="<?php echo BASE_URL; ?>modules/settings/roles.php"><i class="bi bi-gear me-2"></i> Account Settings</a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item py-2 rounded text-danger" href="<?php echo BASE_URL; ?>logout.php"><i class="bi bi-box-arrow-left me-2"></i> Sign Out</a></li>
+                <li><a class="dropdown-item py-2 rounded text-danger" href="<?php echo BASE_URL; ?>logout.php" onclick="return confirm('Are you sure you want to sign out?')"><i class="bi bi-box-arrow-left me-2"></i> Sign Out</a></li>
             </ul>
         </div>
     </nav>

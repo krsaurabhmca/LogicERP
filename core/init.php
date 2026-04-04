@@ -22,10 +22,19 @@ $user_role = $_SESSION['user_role'] ?? 'guest';
 function check_auth($role = null) {
     global $is_logged_in, $user_role;
     if (!$is_logged_in) {
-        redirect('login.php', 'Please login to continue.', 'danger');
+        redirect(BASE_URL . 'login.php', 'Please login to continue.', 'danger');
     }
-    if ($role && $user_role !== 'admin' && $user_role !== $role) {
-        redirect('index.php', 'Unauthorized access.', 'warning');
+    
+    // Developer role has total access everywhere bypass
+    if ($user_role === 'dev') return true;
+
+    // Normal role check
+    if ($role) {
+        // Handle comma-separated list of roles
+        $roles = is_array($role) ? $role : array_map('trim', explode(',', $role));
+        if (!in_array($user_role, $roles)) {
+            redirect(BASE_URL . 'index.php', 'Unauthorized access.', 'warning');
+        }
     }
 }
 ?>

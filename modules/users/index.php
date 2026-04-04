@@ -9,13 +9,19 @@ check_auth('admin');
 
 include_once __DIR__ . '/../../includes/header.php';
 
-// Fetch all users with their role names
-$users = fetch_all("
+// Fetch users with RBAC filtering
+$sql_users = "
     SELECT u.*, r.role_name 
     FROM users u 
     LEFT JOIN roles r ON u.role_id = r.role_id 
-    ORDER BY u.created_at DESC
-");
+";
+
+if ($user_role === 'admin') {
+    $sql_users .= " WHERE r.role_name NOT IN ('dev', 'admin')";
+}
+
+$sql_users .= " ORDER BY u.created_at DESC";
+$users = fetch_all($sql_users);
 ?>
 
 <div class="container-fluid py-3">

@@ -5,9 +5,7 @@
  */
 ?>
 
-    </div> <!-- End Main Content -->
-
-    </div> <!-- End Main Content -->
+    </div> <!-- End Main Content (opened in header.php) -->
     
     <script>
         // Common Tooltips & Popovers

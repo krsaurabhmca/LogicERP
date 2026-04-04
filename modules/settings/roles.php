@@ -9,11 +9,17 @@ check_auth('admin');
 
 include_once __DIR__ . '/../../includes/header.php';
 
-// Fetch all roles
-$roles = fetch_all("SELECT * FROM roles ORDER BY role_name ASC");
+// Fetch roles with RBAC filtering
+$sql_roles = "SELECT * FROM roles";
+if ($user_role === 'admin') {
+    $sql_roles .= " WHERE role_name NOT IN ('dev', 'admin')";
+}
+$sql_roles .= " ORDER BY role_name ASC";
+$roles = fetch_all($sql_roles);
 
-// Fetch counts for users per role
-$user_counts = fetch_all("SELECT role_id, COUNT(*) as count FROM users GROUP BY role_id");
+// Fetch counts for users per role (respecting filter)
+$sql_counts = "SELECT role_id, COUNT(*) as count FROM users GROUP BY role_id";
+$user_counts = fetch_all($sql_counts);
 $counts_map = [];
 foreach ($user_counts as $uc) $counts_map[$uc['role_id']] = $uc['count'];
 

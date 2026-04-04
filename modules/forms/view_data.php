@@ -24,7 +24,7 @@ foreach ($all_fields as $f) {
     if ($f['show_in_table'] != 1) continue;
     
     $allowed = json_decode($f['allowed_roles'] ?? '[]', true);
-    if (!empty($allowed) && !in_array($user_role, $allowed)) continue;
+    if ($user_role !== 'dev' && !empty($allowed) && !in_array($user_role, $allowed)) continue;
     
     $fields[] = $f;
 }
@@ -34,7 +34,7 @@ $form_fields = [];
 foreach ($all_fields as $f) {
     if ($f['is_visible'] != 1) continue;
     $allowed = json_decode($f['allowed_roles'] ?? '[]', true);
-    if (!empty($allowed) && !in_array($user_role, $allowed)) continue;
+    if ($user_role !== 'dev' && !empty($allowed) && !in_array($user_role, $allowed)) continue;
     $form_fields[] = $f;
 }
 
@@ -120,15 +120,15 @@ include_once __DIR__ . '/../../includes/header.php';
                 <input type="text" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Search entries..." style="width: 200px;">
             </div>
             <button class="btn btn-primary shadow-sm px-3" onclick="openAddModal()">
-                <i class="bi bi-plus-lg me-2"></i> New Entry
+                <i class="bi bi-plus-lg me-2"></i> New
             </button>
             <div class="dropdown">
                 <button class="btn btn-outline-secondary bg-white shadow-sm px-3" data-bs-toggle="dropdown">
                     <i class="bi bi-download"></i>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow border-0 py-2">
-                    <li><a class="dropdown-item text-sm" href="#"><i class="bi bi-file-earmark-excel me-2"></i> Export Excel</a></li>
-                    <li><a class="dropdown-item text-sm" href="#"><i class="bi bi-file-earmark-pdf me-2"></i> Export PDF</a></li>
+                    <li><a class="dropdown-item text-sm" href="export.php?id=<?php echo $id_enc; ?>&type=csv"><i class="bi bi-file-earmark-excel me-2"></i> Export Excel (CSV)</a></li>
+                    <li><a class="dropdown-item text-sm" href="export.php?id=<?php echo $id_enc; ?>&type=print" target="_blank"><i class="bi bi-file-earmark-pdf me-2"></i> Export PDF (Print View)</a></li>
                 </ul>
             </div>
         </div>
@@ -144,21 +144,10 @@ include_once __DIR__ . '/../../includes/header.php';
                         <?php foreach($fields as $field): ?>
                             <th class="py-2 border-0"><?php echo strtoupper($field['field_label']); ?></th>
                         <?php endforeach; ?>
-                        <th class="py-2 border-0">DATE</th>
                         <th class="px-3 py-2 border-0 text-end" style="width: 100px;">ACTIONS</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (empty($submissions)): ?>
-                        <tr>
-                            <td colspan="<?php echo count($fields) + 3; ?>" class="text-center py-5">
-                                <div class="opacity-25 mb-2"><i class="bi bi-database-exclamation fs-1"></i></div>
-                                <h6 class="text-muted text-sm">No data entries found yet.</h6>
-                                <button onclick="openAddModal()" class="btn btn-sm btn-outline-primary mt-2">Add First Record</button>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-
                     <?php foreach ($submissions as $sub): ?>
                     <tr>
                         <td class="px-3 py-2 fw-600 text-muted small">#<?php echo $sub['submission_id']; ?></td>
@@ -200,9 +189,6 @@ include_once __DIR__ . '/../../includes/header.php';
                                 ?>
                             </td>
                         <?php endforeach; ?>
-                        <td class="py-2">
-                            <div class="text-xs text-muted"><?php echo date('M j, y H:i', strtotime($sub['created_at'])); ?></div>
-                        </td>
                         <td class="px-3 py-2 text-end">
                             <div class="btn-group bg-white border rounded shadow-sm overflow-hidden">
                                 <button onclick="viewSub(<?php echo $sub['submission_id']; ?>)" class="btn btn-xs btn-white border-0 px-2 py-1"><i class="bi bi-eye text-primary text-xs"></i></button>
@@ -363,7 +349,7 @@ $(function() {
         "pageLength": 10,
         "dom": 'rtip', // Hide default search/length
         "language": {
-            "emptyTable": "No data available in table",
+            "emptyTable": '<div class="py-5 text-center"><div class="opacity-25 mb-2"><i class="bi bi-database-exclamation fs-1"></i></div><h6 class="text-muted text-sm">No data entries found yet.</h6><button onclick="openAddModal()" class="btn btn-sm btn-outline-primary mt-2">Add First Record</button></div>',
             "paginate": { "previous": "<", "next": ">" }
         },
         "columnDefs": [

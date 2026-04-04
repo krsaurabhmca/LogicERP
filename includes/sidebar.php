@@ -3,73 +3,93 @@
  * Sidebar Component
  * LogicERP Modular Framework
  */
-$current_page = basename($_SERVER['PHP_SELF']);
+$current_script = $_SERVER['PHP_SELF'];
 ?>
 
 <div class="sidebar d-none d-lg-block">
-    <div class="p-3 mb-2 border-bottom">
-       <div class="d-flex align-items-center px-1">
-           <div class="bg-primary rounded-3 text-white d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+    <div class="p-4 mb-2 border-bottom border-light border-opacity-10">
+       <div class="d-flex align-items-center">
+           <div class="bg-primary rounded-3 text-white d-flex align-items-center justify-content-center me-3 shadow-sm" style="width: 38px; height: 38px;">
                <i class="bi bi-grid-fill"></i>
            </div>
            <div>
-               <div class="fw-800 text-primary lh-1" style="font-size: 1.1rem; letter-spacing: -0.5px;">LogicERP</div>
-               <div class="text-muted" style="font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Enterprise Suite</div>
+               <div class="fw-800 text-white lh-1 mb-1" style="font-size: 1.2rem; letter-spacing: -0.5px;">Logic<span class="text-primary">ERP</span></div>
+               <div class="sidebar-text opacity-50 fw-600" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">Suite v2.0</div>
            </div>
        </div>
     </div>
 
     <div class="sidebar-menu">
-        <a href="<?php echo BASE_URL; ?>index.php" class="sidebar-link <?php echo $current_page == 'index.php' ? 'active' : ''; ?>">
-            <i class="bi bi-columns-gap"></i> Dashboard
-        </a>
-        
-        <div class="px-3 py-2 text-muted mt-2 fw-600" style="font-size: 0.65rem; text-transform: uppercase;">Core Modules</div>
-        
-        <a href="<?php echo BASE_URL; ?>modules/users/index.php" class="sidebar-link <?php echo strpos($current_page, 'user') !== false ? 'active' : ''; ?>">
-            <i class="bi bi-person-badge"></i> Users
-        </a>
-
-        <a href="<?php echo BASE_URL; ?>modules/forms/index.php" class="sidebar-link <?php echo strpos($current_page, 'form') !== false ? 'active' : ''; ?>">
-            <i class="bi bi-window-stack"></i> Form Builder
-        </a>
-
-        <a href="<?php echo BASE_URL; ?>modules/reports/index.php" class="sidebar-link <?php echo strpos($current_page, 'report') !== false ? 'active' : ''; ?>">
-            <i class="bi bi-graph-up"></i> Reports
+        <?php $is_dashboard = (strpos($current_script, '/index.php') !== false && strpos($current_script, '/modules/') === false); ?>
+        <a href="<?php echo BASE_URL; ?>index.php" class="sidebar-link <?php echo $is_dashboard ? 'active' : ''; ?>">
+            <i class="bi bi-columns-gap text-primary opacity-100"></i> Dashboard
         </a>
 
         <?php
-        // Dynamic Workspace Modules
-        $user_modules = fetch_all("SELECT form_id, form_name, module_icon FROM forms WHERE is_module = 1 AND is_active = 1");
-        if (!empty($user_modules)):
+        // Dynamic Workspace Modules with RBAC (MOVED TO TOP)
+        $user_modules = fetch_all("SELECT form_id, form_name, module_icon, allowed_roles FROM forms WHERE is_module = 1 AND is_active = 1");
+        
+        $filtered_modules = [];
+        foreach ($user_modules as $mod) {
+            $allowed = json_decode($mod['allowed_roles'] ?? '[]', true);
+            if (empty($allowed) || in_array($user_role, $allowed) || $user_role === 'dev') {
+                $filtered_modules[] = $mod;
+            }
+        }
+
+        if (!empty($filtered_modules)):
         ?>
-        <div class="px-3 py-2 text-muted mt-2 fw-600" style="font-size: 0.65rem; text-transform: uppercase;">Workspace</div>
-        <?php foreach ($user_modules as $mod): 
+        <div class="sidebar-label text-truncate">My Workspace</div>
+        <?php foreach ($filtered_modules as $mod): 
             $mod_id_enc = encrypt_id($mod['form_id']);
-            $is_active_mod = (isset($_GET['id']) && $_GET['id'] == $mod_id_enc);
+            $is_active_mod = (strpos($_SERVER['REQUEST_URI'], $mod_id_enc) !== false && strpos($current_script, 'view_data.php') !== false);
+            $colors = ['text-primary', 'text-success', 'text-info', 'text-warning', 'text-danger', 'text-secondary'];
+            $color_idx = $mod['form_id'] % count($colors);
         ?>
             <a href="<?php echo BASE_URL; ?>modules/forms/view_data.php?id=<?php echo $mod_id_enc; ?>" 
                class="sidebar-link <?php echo $is_active_mod ? 'active' : ''; ?>">
-                <i class="bi <?php echo $mod['module_icon'] ?: 'bi-collection'; ?>"></i> <?php echo $mod['form_name']; ?>
+                <i class="bi <?php echo $mod['module_icon'] ?: 'bi-collection'; ?> <?php echo $is_active_mod ? '' : $colors[$color_idx]; ?> opacity-100"></i> <?php echo $mod['form_name']; ?>
             </a>
         <?php endforeach; ?>
         <?php endif; ?>
 
-        <div class="px-3 py-2 text-muted mt-2 fw-600" style="font-size: 0.65rem; text-transform: uppercase;">System</div>
-
-        <a href="<?php echo BASE_URL; ?>modules/settings/roles.php" class="sidebar-link <?php echo $current_page == 'roles.php' ? 'active' : ''; ?>">
-            <i class="bi bi-shield-check"></i> Roles
+        <div class="sidebar-label">Analytics</div>
+        <?php $is_reports = (strpos($current_script, '/modules/reports/') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>modules/reports/index.php" class="sidebar-link <?php echo $is_reports ? 'active' : ''; ?>">
+            <i class="bi bi-graph-up text-danger opacity-100"></i> Reports
+        </a>
+        
+        <?php if ($user_role === 'dev' || $user_role === 'admin'): ?>
+        <div class="sidebar-label">Organization</div>
+        <?php $is_users = (strpos($current_script, '/modules/users/') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>modules/users/index.php" class="sidebar-link <?php echo $is_users ? 'active' : ''; ?>">
+            <i class="bi bi-person-badge text-success opacity-100"></i> Users Management
         </a>
 
-        <a href="<?php echo BASE_URL; ?>audit_logs.php" class="sidebar-link <?php echo $current_page == 'audit_logs.php' ? 'active' : ''; ?>">
-            <i class="bi bi-journal-text"></i> Audit Log
+        <div class="sidebar-label">System</div>
+        <?php $is_roles = (strpos($current_script, 'roles.php') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>modules/settings/roles.php" class="sidebar-link <?php echo $is_roles ? 'active' : ''; ?>">
+            <i class="bi bi-shield-check text-info opacity-100"></i> Roles & RBAC
         </a>
-    </div>
 
-    <div class="sidebar-footer position-absolute bottom-0 w-100 p-3 border-top bg-light/50">
-        <a href="<?php echo BASE_URL; ?>logout.php" class="sidebar-link text-danger m-0 p-2">
-            <i class="bi bi-power"></i> <span class="fw-600">SIGN OUT</span>
+        <?php if ($user_role === 'dev'): ?>
+        <div class="sidebar-label">Developer Tools</div>
+        <?php $is_forms = (strpos($current_script, '/modules/forms/index.php') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>modules/forms/index.php" class="sidebar-link <?php echo $is_forms ? 'active' : ''; ?>">
+            <i class="bi bi-window-stack text-primary opacity-100"></i> Form Builder
         </a>
+
+        <?php $is_menu = (strpos($current_script, 'menu_designer.php') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>modules/settings/menu_designer.php" class="sidebar-link <?php echo $is_menu ? 'active' : ''; ?>">
+            <i class="bi bi-palette text-warning opacity-100"></i> Menu Designer
+        </a>
+
+        <?php $is_audit = (strpos($current_script, 'audit_logs.php') !== false); ?>
+        <a href="<?php echo BASE_URL; ?>audit_logs.php" class="sidebar-link <?php echo $is_audit ? 'active' : ''; ?>">
+            <i class="bi bi-journal-text text-secondary opacity-100"></i> Audit Log
+        </a>
+        <?php endif; ?>
+        <?php endif; ?>
     </div>
 </div>
 

@@ -67,8 +67,8 @@ $forms = fetch_all("
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow border-0 p-2" style="border-radius: 12px;">
                                 <li><a class="dropdown-item py-2 rounded text-sm" href="<?php echo BASE_URL; ?>modules/forms/builder.php?id=<?php echo encrypt_id($form['form_id']); ?>"><i class="bi bi-pencil me-2"></i> Design Fields</a></li>
-                                <li><a class="dropdown-item py-2 rounded text-sm" href="javascript:void(0)" onclick="toggleModule(<?php echo $form['form_id']; ?>, <?php echo $form['is_module'] ? 0 : 1; ?>)">
-                                    <i class="bi <?php echo $form['is_module'] ? 'bi-toggle-on text-primary' : 'bi-toggle-off'; ?> me-2"></i> <?php echo $form['is_module'] ? 'Unmark Module' : 'Mark as Module'; ?>
+                                <li><a class="dropdown-item py-2 rounded text-sm" href="javascript:void(0)" onclick="openModuleSettings(<?php echo htmlspecialchars(json_encode($form)); ?>)">
+                                    <i class="bi bi-gear me-2"></i> Module Settings
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item py-2 rounded text-danger text-sm" href="<?php echo BASE_URL; ?>modules/forms/delete.php?id=<?php echo encrypt_id($form['form_id']); ?>"><i class="bi bi-trash me-2"></i> Delete Form</a></li>
@@ -114,7 +114,100 @@ $forms = fetch_all("
     </div>
 </div>
 
+<!-- Module Settings Modal -->
+<div class="modal fade" id="moduleSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form id="moduleSettingsForm">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-800" id="moduleSettingsTitle">Module Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" name="form_id" id="mod_form_id">
+                    <div class="mb-3">
+                        <label class="form-label text-xs fw-600 text-muted text-uppercase mb-1">Module Display</label>
+                        <div class="form-check form-switch p-3 bg-light rounded-3 mb-2">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" name="is_module" id="mod_is_module">
+                            <label class="form-check-label fw-bold text-sm" for="mod_is_module">Show as Sidebar Module</label>
+                        </div>
+                        <div class="form-check form-switch p-3 bg-light rounded-3">
+                            <input class="form-check-input ms-0 me-2" type="checkbox" name="show_on_dashboard" id="mod_show_on_dashboard">
+                            <label class="form-check-label fw-bold text-sm" for="mod_show_on_dashboard">Create Dashboard Widget</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-xs fw-600 text-muted text-uppercase mb-1">Access Control (Roles)</label>
+                        <select name="allowed_roles[]" id="mod_allowed_roles" class="form-select form-select-sm" multiple style="height: 100px;">
+                            <option value="admin">Admin Only</option>
+                            <option value="staff">Staff</option>
+                            <option value="manager">Manager</option>
+                            <option value="user">User</option>
+                        </select>
+                        <div class="text-xs text-muted mt-1">Leave empty if everyone can access.</div>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label text-xs fw-600 text-muted text-uppercase mb-1">Module Icon</label>
+                            <select name="module_icon" id="mod_module_icon" class="form-select form-select-sm">
+                                <option value="bi-collection">Default</option>
+                                <option value="bi-people">People</option>
+                                <option value="bi-cash-stack">Financial</option>
+                                <option value="bi-box-seam">Inventory</option>
+                                <option value="bi-headset">Support</option>
+                                <option value="bi-shield-check">Security</option>
+                                <option value="bi-calendar-event">Events</option>
+                                <option value="bi-bar-chart">Reports</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-xs fw-600 text-muted text-uppercase mb-1">Category</label>
+                            <input type="text" name="module_category" id="mod_module_category" class="form-control form-control-sm" placeholder="General">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-3">
+                    <button type="submit" class="btn btn-primary w-100 py-2 fw-800 shadow-sm" id="btnSaveModSettings">Save Configuration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
+const modSettingsModal = new bootstrap.Modal(document.getElementById('moduleSettingsModal'));
+
+function openModuleSettings(form) {
+    $('#mod_form_id').val(form.form_id);
+    $('#moduleSettingsTitle').text('Settings: ' + form.form_name);
+    $('#mod_is_module').prop('checked', form.is_module == 1);
+    $('#mod_show_on_dashboard').prop('checked', form.show_on_dashboard == 1);
+    $('#mod_module_icon').val(form.module_icon || 'bi-collection');
+    $('#mod_module_category').val(form.module_category || 'General');
+    
+    let roles = [];
+    try { roles = JSON.parse(form.allowed_roles || '[]'); } catch(e) { }
+    $('#mod_allowed_roles').val(roles);
+    
+    modSettingsModal.show();
+}
+
+$('#moduleSettingsForm').on('submit', function(e) {
+    e.preventDefault();
+    const btn = $('#btnSaveModSettings');
+    btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-2"></span> Saving...');
+    
+    $.post('ajax_save_module_settings.php', $(this).serialize(), function(res) {
+        if(res.status === 'success') location.reload(); else alert(res.message);
+        btn.prop('disabled', false).text('Save Configuration');
+    }, 'json').fail(function() {
+        alert('Server error.');
+        btn.prop('disabled', false).text('Save Configuration');
+    });
+});
+
 function toggleModule(formId, status) {
     if(confirm('Toggle this form as a workspace module?')) {
         $.post('ajax_toggle_module.php', {form_id: formId, status: status}, function(res) {

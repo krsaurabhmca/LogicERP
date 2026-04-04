@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['user_name'] = $user['full_name'];
             $_SESSION['user_role_id'] = $user['role_id'];
-            
+
             // Get role name for helper session
             $roleRes = fetch_one("SELECT role_name FROM roles WHERE role_id = ?", [$user['role_id']]);
             $_SESSION['user_role'] = strtolower($roleRes['role_name']);
@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,25 +63,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Custom CSS -->
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
     <style>
-      body {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-      }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
     </style>
 </head>
-<body>
 
-    <div class="login-card animate-up glass">
-        <div class="text-center mb-4">
+<body class="auth-wrapper">
+
+    <div class="login-card animate-up">
+        <div class="text-center mb-5">
+            <div class="brand-logo-circle">
+                <i class="bi bi-grid-fill"></i>
+            </div>
             <div class="brand-title">LogicERP</div>
-            <div class="text-muted" style="font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">Enterprise Suite</div>
+            <div class="text-muted fw-800 text-uppercase"
+                style="font-size: 0.7rem; letter-spacing: 0.15em; opacity: 0.6;">Enterprise Suite v2.0</div>
         </div>
 
         <?php if (!empty($error)): ?>
-            <div class="alert alert-danger py-2 px-3 border-0 rounded-3 small mb-4 shadow-sm" role="alert">
-                <i class="bi bi-exclamation-triangle-fill me-2"></i> <?php echo $error; ?>
+            <div class="alert alert-danger border-0 rounded-4 px-3 py-2 small mb-4 shadow-sm" role="alert"
+                style="background: rgba(var(--danger-rgb), 0.1); color: var(--danger); font-weight: 600;">
+                <i class="bi bi-exclamation-circle-fill me-2"></i> <?php echo $error; ?>
             </div>
         <?php endif; ?>
 
@@ -88,44 +95,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form action="login.php" method="POST">
             <input type="hidden" name="csrf_token" value="<?php echo get_csrf_token(); ?>">
-            
-            <div class="mb-3">
-                <label for="email" class="form-label text-xs fw-600 text-muted mb-1 text-uppercase">Email Address</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-white border-end-0 py-2 px-3" style="border-radius: 10px 0 0 10px;">
-                        <i class="bi bi-envelope text-muted"></i>
-                    </span>
-                    <input type="email" name="email" id="email" class="form-control border-start-0 py-2" 
-                           placeholder="name@company.com" required style="border-radius: 0 10px 10px 0; font-size: 0.85rem;">
-                </div>
+
+            <div class="input-group-auth">
+                <label for="email">Account Email</label>
+                <input type="email" name="email" id="email" class="form-control" placeholder="name@company.com" required
+                    autocomplete="email">
             </div>
 
-            <div class="mb-3">
-                <label for="password" class="form-label text-xs fw-600 text-muted mb-1 text-uppercase">Password</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text bg-white border-end-0 py-2 px-3" style="border-radius: 10px 0 0 10px;">
-                        <i class="bi bi-lock text-muted"></i>
-                    </span>
-                    <input type="password" name="password" id="password" class="form-control border-start-0 py-2" 
-                           placeholder="••••••••" required style="border-radius: 0 10px 10px 0; font-size: 0.85rem;">
+            <div class="input-group-auth">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="mb-0" for="password">Password</label>
+                    <a href="forgot-password.php" class="text-primary text-xs text-decoration-none fw-800">Forgot?</a>
                 </div>
-                <div class="text-end mt-2">
-                    <a href="forgot-password.php" class="text-primary text-xs text-decoration-none fw-600">Forgot password?</a>
-                </div>
+                <input type="password" name="password" id="password" class="form-control" placeholder="••••••••"
+                    required autocomplete="current-password">
             </div>
 
-            <div class="mb-4 form-check">
+            <div class="mb-4 form-check py-1">
                 <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                <label class="form-check-label text-xs text-muted" for="remember">Keep me logged in</label>
+                <label class="form-check-label text-xs text-muted fw-600" for="remember">Stay signed in for 30
+                    days</label>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-2 mb-3 shadow-md fw-600">
-                Sign In <i class="bi bi-arrow-right ms-2"></i>
+            <button type="submit"
+                class="btn btn-primary w-100 py-3 rounded-4 fw-800 shadow-lg text-uppercase tracking-wider">
+                Access Workspace <i class="bi bi-arrow-right-short fs-4 align-middle ms-1"></i>
             </button>
 
-            <div class="text-center mt-4 pt-2 border-top">
-                <span class="text-muted text-xs">New to LogicERP? </span>
-                <a href="signup.php" class="text-primary text-xs text-decoration-none fw-800">Create Account</a>
+            <div class="text-center mt-4 pt-3 border-top border-light">
+                <span class="text-muted text-xs fw-600">Need a system account?</span>
+                <a href="signup.php" class="text-primary text-xs text-decoration-none fw-800 ms-1">Contact Dev</a>
             </div>
         </form>
     </div>
@@ -133,4 +132,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>
