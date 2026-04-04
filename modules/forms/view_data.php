@@ -47,13 +47,43 @@ $submissions = fetch_all("
     ORDER BY s.created_at DESC
 ", [$form_id]);
 
-// 5. Data Mapping logic remains same but uses submission IDs
+// 5. Data Mapping & Dynamic Resolution
 $data_map = [];
+$dynamic_resolutions = []; // Map [submission_id][field_id] -> label
+
 if (!empty($submissions)) {
     $sub_ids = array_column($submissions, 'submission_id');
     $placeholders = implode(',', array_fill(0, count($sub_ids), '?'));
     $raw_data = fetch_all("SELECT submission_id, field_id, field_value FROM form_data WHERE submission_id IN ($placeholders)", $sub_ids);
-    foreach ($raw_data as $row) { $data_map[$row['submission_id']][$row['field_id']] = $row['field_value']; }
+    foreach ($raw_data as $row) { 
+        $data_map[$row['submission_id']][$row['field_id']] = $row['field_value']; 
+    }
+
+    // Identify dynamic fields and collect IDs to resolve
+    $dynamic_fields = array_filter($fields, function($f) { return !empty($f['dynamic_module']) && !empty($f['dynamic_label_column']); });
+    
+    if(!empty($dynamic_fields)) {
+        $ids_to_resolve = [];
+        foreach($dynamic_fields as $df) {
+            foreach($submissions as $s) {
+                $val = $data_map[$s['submission_id']][$df['field_id']] ?? null;
+                if($val) $ids_to_resolve[$df['dynamic_label_column']][] = $val;
+            }
+        }
+
+        // Batch fetch labels for all referenced IDs
+        foreach($ids_to_resolve as $label_field_id => $referenced_ids) {
+            $referenced_ids = array_unique($referenced_ids);
+            if(empty($referenced_ids)) continue;
+            
+            $placeholders = implode(',', array_fill(0, count($referenced_ids), '?'));
+            $labels = fetch_all("SELECT submission_id, field_value FROM form_data WHERE field_id = ? AND submission_id IN ($placeholders)", array_merge([$label_field_id], $referenced_ids));
+            
+            foreach($labels as $l) {
+                $dynamic_resolutions[$l['submission_id']][$label_field_id] = $l['field_value'];
+            }
+        }
+    }
 }
 
 include_once __DIR__ . '/../../includes/header.php';
@@ -147,6 +177,19 @@ include_once __DIR__ . '/../../includes/header.php';
                                         if($val == 'Inactive') $cls = 'bg-warning text-dark';
                                         if($val == 'Blocked') $cls = 'bg-danger';
                                         echo '<span class="badge '.$cls.' rounded-pill px-2" style="font-size: 0.65rem;">'.$val.'</span>';
+                                    } elseif (!empty($field['dynamic_module']) && !empty($field['dynamic_label_column'])) {
+                                        // Resolve Dynamic Label
+                                        $label_field_id = $field['dynamic_label_column'];
+                                        if (is_array($val) || (strpos($val ?? '', '[') === 0 && strpos($val ?? '', ']') !== false)) {
+                                            $arr = is_array($val) ? $val : json_decode($val, true);
+                                            $resolved_arr = [];
+                                            foreach($arr as $item_id) {
+                                                $resolved_arr[] = $dynamic_resolutions[$item_id][$label_field_id] ?? $item_id;
+                                            }
+                                            echo htmlspecialchars(implode(', ', $resolved_arr));
+                                        } else {
+                                            echo htmlspecialchars($dynamic_resolutions[$val][$label_field_id] ?? $val);
+                                        }
                                     } elseif (is_array($val) || (strpos($val ?? '', '[') === 0 && strpos($val ?? '', ']') !== false)) {
                                         // Handle potential JSON or array from multi-select
                                         $arr = is_array($val) ? $val : json_decode($val, true);
@@ -192,7 +235,12 @@ include_once __DIR__ . '/../../includes/header.php';
            
            <div class="row g-3">
            <?php foreach ($form_fields as $field): ?>
-                <div class="col-12 <?php echo !($field['is_visible'] ?? 1) ? 'd-none' : ''; ?>">
+                <?php if($field['field_type'] == 'section_heading'): ?>
+                    <div class="col-12 mt-4 mb-2">
+                        <h6 class="fw-bold text-primary border-bottom pb-2 mb-0"><i class="bi bi-info-circle me-1"></i> <?php echo strtoupper($field['field_label']); ?></h6>
+                    </div>
+                <?php else: ?>
+                <div class="col-md-<?php echo $field['field_width'] ?? 12; ?> <?php echo !($field['is_visible'] ?? 1) ? 'd-none' : ''; ?>">
                     <label class="form-label text-xs fw-600 text-muted text-uppercase mb-1">
                         <?php echo $field['field_label']; ?> <?php echo ($field['is_required'] ?? 0) ? '<span class="text-danger">*</span>' : ''; ?>
                     </label>
@@ -211,19 +259,25 @@ include_once __DIR__ . '/../../includes/header.php';
                                 <option value="">Select option...</option>
                             <?php endif; ?>
                             <?php 
-                                if(!empty(trim($field['dynamic_query'] ?? ''))) {
+                                $options = [];
+                                if(!empty($field['dynamic_module']) && !empty($field['dynamic_label_column'])) {
+                                    $mod_id = $field['dynamic_module'];
+                                    $label_field_id = $field['dynamic_label_column'];
+                                    $results = fetch_all("SELECT s.submission_id as id, d.field_value as val FROM form_submissions s JOIN form_data d ON s.submission_id = d.submission_id WHERE s.form_id = ? AND d.field_id = ?", [$mod_id, $label_field_id]);
+                                    foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
+                                } elseif(!empty(trim($field['dynamic_query'] ?? ''))) {
                                     $results = fetch_all($field['dynamic_query']);
-                                    foreach($results as $row) {
-                                        $sel = ($row['id'] == $def) ? 'selected' : '';
-                                        echo '<option value="'.htmlspecialchars($row['id']).'" '.$sel.'>'.htmlspecialchars($row['val']).'</option>';
-                                    }
+                                    foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
                                 } else {
                                     $opts = explode("\n", $field['field_options'] ?? '');
                                     foreach($opts as $opt) { 
-                                        $opt = trim($opt); if(!$opt) continue; 
-                                        $sel = ($opt == $def) ? 'selected' : '';
-                                        echo '<option value="'.htmlspecialchars($opt).'" '.$sel.'>'.htmlspecialchars($opt).'</option>'; 
+                                        $opt = trim($opt); if($opt) $options[] = ['id' => $opt, 'val' => $opt]; 
                                     }
+                                }
+
+                                foreach($options as $opt) {
+                                    $sel = ($opt['id'] == $def) ? 'selected' : '';
+                                    echo '<option value="'.htmlspecialchars($opt['id']).'" '.$sel.'>'.htmlspecialchars($opt['val']).'</option>';
                                 }
                             ?>
                         </select>
@@ -283,6 +337,7 @@ include_once __DIR__ . '/../../includes/header.php';
                         <input type="<?php echo $field['field_type']; ?>" name="<?php echo $field['field_name']; ?>" id="field_<?php echo $field['field_id']; ?>" value="<?php echo htmlspecialchars($def); ?>" class="form-control form-control-sm rounded-2" <?php echo ($field['is_required'] ?? 0) ? 'required' : ''; ?>>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
            <?php endforeach; ?>
            </div>
         </div>

@@ -58,7 +58,16 @@ if (basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SEL
             align-items: center;
             justify-content: space-between;
             z-index: 1030;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Collapsed Sidebar Support */
+        body.sidebar-collapsed .main-content,
+        body.sidebar-collapsed .navbar-custom {
+            margin-left: 0;
+        }
+        body.sidebar-collapsed .sidebar {
+            transform: translateX(-100%);
         }
 
         @media (max-width: 991px) {
@@ -131,7 +140,10 @@ if (basename($_SERVER['PHP_SELF']) !== 'login.php' && basename($_SERVER['PHP_SEL
             <button class="btn btn-light d-lg-none me-3" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarOffcanvas">
                 <i class="bi bi-list"></i>
             </button>
-            <h5 class="mb-0 fw-bold d-none d-sm-block">Dashboard Overview</h5>
+            <button class="btn btn-light border-0 d-none d-lg-flex me-3 rounded-3 p-2" id="sidebarToggle" type="button">
+                <i class="bi bi-distribute-vertical text-primary"></i>
+            </button>
+            <h5 class="mb-0 fw-bold d-none d-sm-block" id="page-title">Dashboard Overview</h5>
         </div>
         
         <div class="user-pill dropdown" data-bs-toggle="dropdown" aria-expanded="false">

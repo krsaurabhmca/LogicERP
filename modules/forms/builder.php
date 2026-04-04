@@ -46,11 +46,12 @@ include_once __DIR__ . '/../../includes/header.php';
                     <span class="badge bg-light text-muted fw-normal rounded-pill px-3"><?php echo count($fields); ?> Elements</span>
                 </div>
 
-                <div class="row g-3">
+                <div class="row g-3" id="field-structure">
                 <?php foreach ($fields as $field): ?>
-                    <div class="col-md-6">
-                        <div class="card border <?php echo ($field['is_visible'] ?? 1) ? 'bg-light' : 'bg-secondary bg-opacity-10'; ?> rounded-4 p-3 h-100 position-relative">
+                    <div class="col-md-6 field-card" data-id="<?php echo $field['field_id']; ?>">
+                        <div class="card border mb-2 <?php echo ($field['is_visible'] ?? 1) ? 'bg-light' : 'bg-secondary bg-opacity-10'; ?> rounded-4 p-3 h-100 position-relative draggable">
                             <div class="position-absolute top-0 end-0 p-2 d-flex">
+                                <div class="drag-handle p-2 text-muted cursor-move" title="Drag to reorder"><i class="bi bi-grip-vertical"></i></div>
                                 <button class="btn btn-sm btn-white shadow-sm rounded-circle me-1 edit-btn" data-field='<?php echo htmlspecialchars(json_encode($field), ENT_QUOTES, 'UTF-8'); ?>'>
                                     <i class="bi bi-pencil small"></i>
                                 </button>
@@ -136,16 +137,26 @@ include_once __DIR__ . '/../../includes/header.php';
                         <option value="month">Month Picker</option>
                         <option value="file">File Upload</option>
                         <option value="color">Color Picker</option>
+                        <option value="section_heading">Section Divider / Heading</option>
                         <option value="camera">Capture Camera</option>
                         <option value="geolocation">Capture Location (GPS)</option>
                     </optgroup>
                 </select>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-3">
                 <label class="form-label smaller fw-bold text-muted">VISIBILITY</label>
                 <select name="is_visible" id="is_visible" class="form-select rounded-3">
                     <option value="1">Show on Form</option>
                     <option value="0">Hide on Form</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label smaller fw-bold text-muted">WIDTH (COL)</label>
+                <select name="field_width" id="field_width" class="form-select rounded-3">
+                    <option value="12">Full (12)</option>
+                    <option value="6">Half (6)</option>
+                    <option value="4">1/3rd (4)</option>
+                    <option value="3">1/4th (3)</option>
                 </select>
             </div>
 
@@ -159,8 +170,32 @@ include_once __DIR__ . '/../../includes/header.php';
                             <textarea name="field_options" id="field_options" class="form-control rounded-3" rows="3" placeholder="Option 1&#10;Option 2&#10;One per line"></textarea>
                         </div>
                         <div class="col-md-6" id="query-wrapper">
-                            <label class="form-label smaller fw-bold text-muted">DYNAMIC QUERY (SQL)</label>
-                            <textarea name="dynamic_query" id="dynamic_query" class="form-control rounded-3" rows="3" placeholder="SELECT role_id as id, role_name as val FROM roles"></textarea>
+                            <label class="form-label smaller fw-bold text-muted">DYNAMIC QUERY (SQL) <span class="badge bg-secondary ms-1">Expert</span></label>
+                            <textarea name="dynamic_query" id="dynamic_query" class="form-control rounded-3" rows="3" placeholder="SELECT id, val FROM table"></textarea>
+                        </div>
+                        <div class="col-md-12" id="dynamic-module-wrapper">
+                            <hr class="my-2 opacity-10">
+                            <label class="form-label smaller fw-bold text-primary mb-3">OR SELECT FROM MODULE (EASY)</label>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="smaller fw-bold text-muted">MODULE NAME</label>
+                                    <select name="dynamic_module" id="dynamic_module" class="form-select rounded-3">
+                                        <option value="">-- Select Module --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="smaller fw-bold text-muted">VALUE COLUMN</label>
+                                    <select name="dynamic_value_column" id="dynamic_value_column" class="form-select rounded-3">
+                                        <option value="">-- Row ID --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="smaller fw-bold text-muted">LABEL COLUMN</label>
+                                    <select name="dynamic_label_column" id="dynamic_label_column" class="form-select rounded-3">
+                                        <option value="">-- Display Text --</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="col-md-12 d-none" id="date-constraints">
                             <div class="row g-2">
@@ -229,11 +264,33 @@ include_once __DIR__ . '/../../includes/header.php';
 
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?>
 
+<!-- SortableJS -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 <script>
 $(function() {
     const modal = new bootstrap.Modal('#fieldModal');
 
-    // Toggle Config Sections based on Field Type
+    // 1. Initialize SortableJS
+    if(document.getElementById('field-structure')) {
+        Sortable.create(document.getElementById('field-structure'), {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'bg-primary-subtle',
+            onEnd: function() {
+                let order = [];
+                $('#field-structure .field-card').each(function() {
+                    order.push($(this).data('id'));
+                });
+                
+                $.post('ajax_save_order.php', { order: order }, function(res) {
+                    if(res.status !== 'success') alert('Order save failed.');
+                }, 'json');
+            }
+        });
+    }
+
+    // 2. Toggle Config Sections
     $('#field_type').on('change', function() {
         const type = $(this).val();
         const selectionTypes = ['select', 'multi_select', 'checkbox_group', 'status'];
@@ -241,13 +298,15 @@ $(function() {
         if (selectionTypes.includes(type)) {
             $('#dropdown-config').removeClass('d-none');
             $('#query-wrapper').removeClass('d-none');
+            $('#dynamic-module-wrapper').removeClass('d-none');
             $('#date-constraints').addClass('d-none');
             $('#config-title').text('Selection Data Source');
             $('#opts-label').text('STATIC OPTIONS');
             
             if (type === 'status') {
                 $('#field_options').val('Active\nInactive\nBlocked');
-                $('#query-wrapper').addClass('d-none'); // Status usually static
+                $('#query-wrapper').addClass('d-none'); 
+                $('#dynamic-module-wrapper').addClass('d-none');
             }
         } else if (type === 'file') {
             $('#dropdown-config').removeClass('d-none');
@@ -265,6 +324,15 @@ $(function() {
         } else {
             $('#dropdown-config').addClass('d-none');
         }
+
+        // Logic for Section Heading specifically
+        if (type === 'section_heading') {
+            $('#show_in_table').prop('checked', false).prop('disabled', true);
+            $('#is_required_check').prop('checked', false).prop('disabled', true);
+        } else {
+            $('#show_in_table').prop('disabled', false);
+            $('#is_required_check').prop('disabled', false);
+        }
     });
 
     // AUTO-GENERATE FIELD NAME
@@ -275,13 +343,54 @@ $(function() {
         }
     });
 
+    $('#dynamic_module').on('change', function() {
+        const table = $(this).val();
+        if(!table) return;
+        
+        const currentVal = $('#dynamic_value_column').data('selected') || '';
+        const currentLabel = $('#dynamic_label_column').data('selected') || '';
+
+        $.get('ajax_get_columns.php', {table: table}, function(cols) {
+            let valHtml = '<option value="">-- Row ID --</option>';
+            let labelHtml = '<option value="">-- Display Text --</option>';
+            cols.forEach(c => {
+                // Now using id/val format
+                valHtml += `<option value="${c.id}" ${c.id == currentVal ? 'selected' : ''}>${c.val}</option>`;
+                labelHtml += `<option value="${c.id}" ${c.id == currentLabel ? 'selected' : ''}>${c.val}</option>`;
+            });
+            $('#dynamic_value_column').html(valHtml);
+            $('#dynamic_label_column').html(labelHtml);
+        }, 'json').fail(function() {
+            console.error('Failed to load columns for table:', table);
+        });
+    });
+
+    // Fetch Tables for Dynamic Module
+    function loadTables(selectedModule = '') {
+        $.get('ajax_get_tables.php', function(tables) {
+            let html = '<option value="">-- Select Module --</option>';
+            tables.forEach(t => {
+                // Now using id/val format
+                html += `<option value="${t.id}" ${t.id == selectedModule ? 'selected' : ''}>${t.val}</option>`;
+            });
+            $('#dynamic_module').html(html);
+            if(selectedModule) {
+                $('#dynamic_module').trigger('change');
+            } else {
+                $('#dynamic_value_column').html('<option value="">-- Row ID --</option>');
+                $('#dynamic_label_column').html('<option value="">-- Display Text --</option>');
+            }
+        }, 'json');
+    }
+
     // ADD FIELD
     $('#btn-add-field').on('click', function() {
         $('#fieldForm')[0].reset();
         $('#field_id').val('');
         $('#modalTitle').text('Add Form Field');
         $('#dropdown-config').addClass('d-none');
-        $('#opts-wrapper').removeClass('d-none'); // Restore for other types
+        $('#opts-wrapper').removeClass('d-none'); 
+        loadTables();
         modal.show();
     });
 
@@ -293,6 +402,7 @@ $(function() {
         $('#field_name').val(data.field_name);
         $('#field_type').val(data.field_type).trigger('change');
         $('#is_visible').val(data.is_visible);
+        $('#field_width').val(data.field_width || 12);
         $('#field_options').val(data.field_options);
         $('#dynamic_query').val(data.dynamic_query);
         $('#default_value').val(data.default_value);
@@ -303,7 +413,10 @@ $(function() {
         $('#is_required_check').prop('checked', data.is_required == 1);
         $('#show_in_table').prop('checked', data.show_in_table == 1);
         
-        // Populate Roles
+        // Populate Dynamic Module fields
+        $('#dynamic_value_column').data('selected', data.dynamic_value_column);
+        $('#dynamic_label_column').data('selected', data.dynamic_label_column);
+        loadTables(data.dynamic_module);
         let roles = [];
         try { roles = JSON.parse(data.allowed_roles || '[]'); } catch(e) { roles = (data.allowed_roles || '').split(','); }
         $('#allowed_roles').val(roles);

@@ -78,25 +78,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <?php echo $field['field_label'] ?? 'Untitled'; ?> <?php echo ($field['is_required'] ?? 0) ? '<span class="text-danger">*</span>' : ''; ?>
                             </label>
                             
+                            <?php 
+                                $options = [];
+                                if(!empty($field['dynamic_module']) && !empty($field['dynamic_label_column'])) {
+                                    $mod_id = $field['dynamic_module'];
+                                    $label_field_id = $field['dynamic_label_column'];
+                                    
+                                    // Fetch data from form_data table joining with submissions
+                                    // The ID is the submission_id, the Val is the value of the selected label field
+                                    $results = fetch_all("SELECT s.submission_id as id, d.field_value as val 
+                                                         FROM form_submissions s 
+                                                         JOIN form_data d ON s.submission_id = d.submission_id 
+                                                         WHERE s.form_id = ? AND d.field_id = ?", [$mod_id, $label_field_id]);
+                                    
+                                    foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
+                                } elseif(!empty(trim($field['dynamic_query'] ?? ''))) {
+                                    $results = fetch_all($field['dynamic_query']);
+                                    foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
+                                } else {
+                                    $opts = explode("\n", $field['field_options'] ?? '');
+                                    foreach($opts as $opt) { 
+                                        $opt = trim($opt); 
+                                        if($opt) $options[] = ['id' => $opt, 'val' => $opt]; 
+                                    }
+                                }
+                            ?>
+
                             <?php if (($field['field_type'] ?? 'text') == 'select'): ?>
                                 <select name="<?php echo $field['field_name'] ?? 'none'; ?>" class="form-select" <?php echo ($field['is_required'] ?? 0) ? 'required' : ''; ?>>
                                     <option value="">Select option...</option>
-                                    <?php 
-                                        if(!empty(trim($field['dynamic_query'] ?? ''))) {
-                                            $results = fetch_all($field['dynamic_query']);
-                                            foreach($results as $row) {
-                                                echo '<option value="'.htmlspecialchars($row['id']).'">'.htmlspecialchars($row['val']).'</option>';
-                                            }
-                                        } else {
-                                            $opts = explode("\n", $field['field_options'] ?? '');
-                                            foreach($opts as $opt) { 
-                                                $opt = trim($opt); 
-                                                if(!$opt) continue; 
-                                                echo '<option value="'.htmlspecialchars($opt).'">'.htmlspecialchars($opt).'</option>'; 
-                                            }
-                                        }
-                                    ?>
+                                    <?php foreach($options as $opt): ?>
+                                        <option value="<?php echo htmlspecialchars($opt['id']); ?>"><?php echo htmlspecialchars($opt['val']); ?></option>
+                                    <?php endforeach; ?>
                                 </select>
+                            <?php elseif (($field['field_type'] ?? 'text') == 'multi_select'): ?>
+                                <select name="<?php echo $field['field_name'] ?? 'none'; ?>[]" class="form-select" multiple style="height: 120px;" <?php echo ($field['is_required'] ?? 0) ? 'required' : ''; ?>>
+                                    <?php foreach($options as $opt): ?>
+                                        <option value="<?php echo htmlspecialchars($opt['id']); ?>"><?php echo htmlspecialchars($opt['val']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="smaller text-muted mt-1" style="font-size: 0.65rem;">Hold Ctrl (or Cmd) to select multiple.</div>
+                            <?php elseif (($field['field_type'] ?? 'text') == 'checkbox_group'): ?>
+                                <div class="card bg-light border-0 p-3 rounded-3">
+                                    <div class="row g-2">
+                                        <?php foreach($options as $index => $opt): ?>
+                                            <div class="col-md-6">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="<?php echo $field['field_name']; ?>[]" value="<?php echo htmlspecialchars($opt['id']); ?>" id="check_<?php echo $field['field_id'].'_'.$index; ?>">
+                                                    <label class="form-check-label small" for="check_<?php echo $field['field_id'].'_'.$index; ?>">
+                                                        <?php echo htmlspecialchars($opt['val']); ?>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
                             <?php elseif (($field['field_type'] ?? 'text') == 'textarea'): ?>
                                 <textarea name="<?php echo $field['field_name'] ?? 'none'; ?>" class="form-control" rows="4" <?php echo ($field['is_required'] ?? 0) ? 'required' : ''; ?>></textarea>
                             <?php else: ?>
