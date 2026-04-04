@@ -1,0 +1,12 @@
+config/db.php
+uploads/*
+!uploads/.gitkeep
+tmp_*
+.gemini/
+.agent/
+.agents/
+.vs/
+.vscode/
+node_modules/
+vendor/
+*.log
