@@ -18,6 +18,9 @@ if (!$form) redirect('index.php', 'Module not found.', 'danger');
 $user_role = $_SESSION['user_role'] ?? '';
 $all_fields = fetch_all("SELECT * FROM form_fields WHERE form_id = ? ORDER BY field_order ASC", [$form_id]);
 
+// Fetch Templates for this module
+$templates = fetch_all("SELECT * FROM report_templates WHERE form_id = ?", [$form_id]);
+
 // 2. Filter Fields by RBAC and Table Visibility
 $fields = [];
 foreach ($all_fields as $f) {
@@ -99,6 +102,16 @@ include_once __DIR__ . '/../../includes/header.php';
     .table.dataTable thead th { border-bottom: none; }
 </style>
 
+<style>
+/* Select2 Bootstrap 5 Fixes */
+.select2-container--default .select2-selection--single { height: 38px; border: 1px solid #dee2e6; border-radius: 8px; padding-top: 5px; }
+.select2-container--default .select2-selection--single .select2-selection__arrow { top: 6px; }
+.select2-dropdown { border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+.dt-button-collection { padding: 10px !important; border-radius: 12px !important; border: none !important; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1) !important; background: #fff !important; }
+.dt-button-collection .dropdown-item.active { background-color: var(--bs-primary) !important; color: #fff !important; border-radius: 6px; }
+.dataTables_filter input { border-radius: 20px; padding: 5px 15px; border: 1px solid #e2e8f0; font-size: 0.85rem; width: 250px !important; }
+</style>
+
 <div class="container-fluid py-3">
     <!-- Header -->
     <div class="row align-items-center mb-3">
@@ -148,7 +161,9 @@ include_once __DIR__ . '/../../includes/header.php';
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($submissions as $sub): ?>
+                    <?php foreach ($submissions as $sub): 
+                        $sid_enc = encrypt_id($sub['submission_id']);
+                    ?>
                     <tr>
                         <td class="px-3 py-2 fw-600 text-muted small">#<?php echo $sub['submission_id']; ?></td>
                         <?php foreach($fields as $field): 
@@ -191,9 +206,22 @@ include_once __DIR__ . '/../../includes/header.php';
                         <?php endforeach; ?>
                         <td class="px-3 py-2 text-end">
                             <div class="btn-group bg-white border rounded shadow-sm overflow-hidden">
-                                <button onclick="viewSub(<?php echo $sub['submission_id']; ?>)" class="btn btn-xs btn-white border-0 px-2 py-1"><i class="bi bi-eye text-primary text-xs"></i></button>
-                                <button onclick="editSub(<?php echo $sub['submission_id']; ?>)" class="btn btn-xs btn-white border-0 px-2 py-1"><i class="bi bi-pencil text-muted text-xs"></i></button>
-                                <button onclick="deleteSub(<?php echo $sub['submission_id']; ?>)" class="btn btn-xs btn-white border-0 px-2 py-1"><i class="bi bi-trash text-danger text-xs"></i></button>
+                                <button class="btn btn-view-sm btn-light border-0 py-1 px-2 rounded-2 text-primary" onclick="viewSub('<?php echo $sid_enc; ?>')" title="View Detail"><i class="bi bi-eye"></i></button>
+                                <button class="btn btn-view-sm btn-light border-0 py-1 px-2 rounded-2 text-success" onclick="editSub('<?php echo $sid_enc; ?>')" title="Edit Record"><i class="bi bi-pencil"></i></button>
+                                
+                                 <?php if($templates): ?>
+                                 <!-- <div class="dropdown d-inline-block">
+                                     <button class="btn btn-view-sm btn-light border-0 py-1 px-2 rounded-2 text-dark" data-bs-toggle="dropdown" data-bs-boundary="viewport" title="Print Selection"><i class="bi bi-printer"></i></button>
+                                     <ul class="dropdown-menu dropdown-menu-end shadow border-0 mt-2 p-2 rounded-3" style="min-width: 220px; z-index: 2000;">
+                                         <li class="dropdown-header text-xs text-uppercase fw-800 opacity-50 mb-2">Print using Template</li>
+                                         <?php foreach($templates as $tmp): ?>
+                                             <li><a class="dropdown-item py-2 rounded text-sm fw-600 mb-1" href="<?php echo BASE_URL; ?>modules/reports/render_template.php?tid=<?php echo encrypt_id($tmp['template_id']); ?>&sid=<?php echo $sid_enc; ?>" target="_blank"><i class="bi bi-file-earmark-pdf me-2 text-primary"></i> <?php echo $tmp['template_name']; ?></a></li>
+                                         <?php endforeach; ?>
+                                     </ul>
+                                 </div> -->
+                                 <?php endif; ?>
+
+                                <button class="btn btn-view-sm btn-light border-0 py-1 px-2 rounded-2 text-danger" onclick="deleteSub('<?php echo $sid_enc; ?>')" title="Delete Entry"><i class="bi bi-trash"></i></button>
                             </div>
                         </td>
                     </tr>
@@ -307,10 +335,21 @@ include_once __DIR__ . '/../../includes/header.php';
                         </div>
                     <?php elseif ($field['field_type'] == 'aadhar'): ?>
                          <input type="text" pattern="[0-9]{4} [0-9]{4} [0-9]{4}|[0-9]{12}" maxlength="14" placeholder="XXXX XXXX XXXX" name="<?php echo $field['field_name']; ?>" id="field_<?php echo $field['field_id']; ?>" value="<?php echo htmlspecialchars($def); ?>" class="form-control form-control-sm rounded-2" <?php echo ($field['is_required'] ?? 0) ? 'required' : ''; ?>>
-                    <?php elseif ($field['field_type'] == 'camera'): ?>
-                        <div class="d-flex gap-2">
-                             <input type="file" accept="image/*" capture="environment" name="<?php echo $field['field_name']; ?>" id="field_<?php echo $field['field_id']; ?>" class="form-control form-control-sm">
-                             <button type="button" class="btn btn-sm btn-light border"><i class="bi bi-camera"></i></button>
+                    <?php elseif ($field['field_type'] == 'camera' || $field['field_type'] == 'file'): ?>
+                        <div class="d-flex flex-column gap-2">
+                             <div id="preview_<?php echo $field['field_id']; ?>" class="mb-2 d-none">
+                                <img src="" class="rounded border shadow-sm img-preview-box" style="width: 80px; height: 80px; object-fit: cover; cursor: pointer;" onclick="window.open(this.src)">
+                             </div>
+                             <div class="d-flex gap-2">
+                                <input type="file" accept="image/*" name="<?php echo $field['field_name']; ?>" 
+                                       id="field_<?php echo $field['field_id']; ?>" 
+                                       data-type="image" 
+                                       class="form-control form-control-sm"
+                                       onchange="previewImage(this, '<?php echo $field['field_id']; ?>')">
+                                <?php if($field['field_type'] == 'camera'): ?>
+                                <button type="button" class="btn btn-sm btn-light border" onclick="$('#field_<?php echo $field['field_id']; ?>').click()"><i class="bi bi-camera"></i></button>
+                                <?php endif; ?>
+                             </div>
                         </div>
                     <?php elseif ($field['field_type'] == 'geolocation'): ?>
                         <div class="input-group input-group-sm">
@@ -327,8 +366,28 @@ include_once __DIR__ . '/../../includes/header.php';
            <?php endforeach; ?>
            </div>
         </div>
-        <div class="modal-footer border-0 p-3">
-          <button type="submit" class="btn btn-primary w-100 py-2 fw-600 shadow-sm" id="btnSaveEntry">Save Records</button>
+        <div class="modal-footer border-0 pt-0 d-flex justify-content-between">
+           <div id="view-print-actions" class="d-none">
+                <?php if($templates): ?>
+                <div class="dropdown">
+                    <button class="btn btn-light btn-sm fw-800 px-3 rounded-pill border dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-printer me-1"></i> Print
+                    </button>
+                    <ul class="dropdown-menu shadow border-0 p-2 rounded-3">
+                         <?php foreach($templates as $tmp): ?>
+                            <li><a class="dropdown-item py-2 rounded text-sm fw-600 print-btn-modal" 
+                                   target="_blank"
+                                   data-tid="<?php echo encrypt_id($tmp['template_id']); ?>" 
+                                   href="javascript:void(0)"><i class="bi bi-file-earmark-pdf me-2"></i> <?php echo $tmp['template_name']; ?></a></li>
+                         <?php endforeach; ?>
+                    </ul>
+                </div>
+                <?php endif; ?>
+           </div>
+           <div>
+               <button type="button" class="btn btn-light border-light-subtle rounded-pill px-4 fw-800 btn-sm" data-bs-dismiss="modal">Close</button>
+               <button type="submit" class="btn btn-primary rounded-pill px-4 fw-800 btn-sm shadow-sm" id="btnSaveEntry">Save Records</button>
+           </div>
         </div>
       </form>
     </div>
@@ -345,10 +404,19 @@ window.deleteSub = null;
 $(function() {
     // 1. Initialize DataTable
     var table = $('#moduleTable').DataTable({
-        "order": [[0, "desc"]], // Default sort by ID
+        "order": [[0, "desc"]], 
         "pageLength": 10,
-        "dom": 'rtip', // Hide default search/length
+        "dom": '<"d-flex justify-content-between align-items-center mb-3"Bf>rtip',
+        "buttons": [
+            {
+                extend: 'colvis',
+                className: 'btn btn-light btn-sm rounded-pill border px-3 shadow-none',
+                text: '<i class="bi bi-layout-three-columns me-2"></i> Toggle Columns'
+            }
+        ],
         "language": {
+            "search": "_INPUT_",
+            "searchPlaceholder": "Filter records...",
             "emptyTable": '<div class="py-5 text-center"><div class="opacity-25 mb-2"><i class="bi bi-database-exclamation fs-1"></i></div><h6 class="text-muted text-sm">No data entries found yet.</h6><button onclick="openAddModal()" class="btn btn-sm btn-outline-primary mt-2">Add First Record</button></div>',
             "paginate": { "previous": "<", "next": ">" }
         },
@@ -370,6 +438,7 @@ $(function() {
     window.openAddModal = function() {
         $('#entryForm')[0].reset();
         $('#submission_id').val('');
+        $('.img-preview-box').parent().addClass('d-none');
         $('#entryModalTitle').text('New Entry');
         $('#btnSaveEntry').show().prop('disabled', false).text('Save Records');
         bModal.show();
@@ -377,16 +446,34 @@ $(function() {
 
     window.editSub = function(subId) {
         $('#entryForm')[0].reset();
+        $('.img-preview-box').parent().addClass('d-none');
         $('#entryModalTitle').text('Edit Entry #' + subId);
         $('#btnSaveEntry').show().prop('disabled', false).text('Save Records');
         
         $.get('ajax_get_submission.php', {submission_id: subId}, function(res) {
             if(res.status === 'success') {
                 $('#submission_id').val(subId);
+                if(res.plain_id) $('#entryModalTitle').text('Record ' + res.plain_id);
                 if(res.data) {
                     Object.keys(res.data).forEach(function(fieldId) {
                         var el = $('#field_' + fieldId);
-                        if(el.length) el.val(res.data[fieldId]);
+                        var val = res.data[fieldId];
+                        if(el.length) {
+                             if(el.is(':checkbox, :radio')) {
+                                  el.prop('checked', false); // reset
+                                  if(val && val.split(',').includes(el.val())) el.prop('checked', true);
+                             } else if(el.attr('type') !== 'file') {
+                                  el.val(val);
+                             }
+                            
+                            // Image Preview Logic
+                            if(el.data('type') === 'image' && val) {
+                                var preview = $('#preview_' + fieldId);
+                                if(preview.length) {
+                                    preview.removeClass('d-none').find('img').attr('src', '<?php echo BASE_URL; ?>uploads/' + val);
+                                }
+                            }
+                        }
                     });
                 }
                 bModal.show();
@@ -402,10 +489,26 @@ $(function() {
         window.editSub(subId);
         // We update the title and hide button after a small delay because editSub sets them
         setTimeout(function() {
-            $('#entryModalTitle').text('View Entry #' + subId);
             $('#btnSaveEntry').hide();
-        }, 100);
+            $('#view-print-actions').removeClass('d-none');
+            $('#entryForm input, #entryForm select, #entryForm textarea').prop('disabled', true);
+            
+            // Link modal print buttons to the specific submission
+            $('.print-btn-modal').each(function() {
+                var tid = $(this).data('tid');
+                $(this).attr('href', '<?php echo BASE_URL; ?>modules/reports/render_template.php?tid=' + tid + '&sid=' + subId);
+            });
+
+            // Re-enable hidden IDs for safety
+            $('#submission_id').prop('disabled', false); 
+        }, 300);
     };
+
+    // Reset Form for next interaction
+    $('#entryModal').on('hidden.bs.modal', function () {
+         $('#entryForm input, #entryForm select, #entryForm textarea').prop('disabled', false);
+         $('#view-print-actions').addClass('d-none');
+    });
 
     window.deleteSub = function(subId) {
         if(confirm('Are you sure you want to delete this entry? This action is permanent.')) {
@@ -452,6 +555,19 @@ $(function() {
         });
     });
 });
+
+// Helper: Live Preview for Image Selection
+function previewImage(input, fieldId) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            $('#preview_' + fieldId).removeClass('d-none').find('img').attr('src', e.target.result);
+        }
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        $('#preview_' + fieldId).addClass('d-none');
+    }
+}
 </script>
 
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?>

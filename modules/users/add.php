@@ -23,6 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (empty($full_name) || empty($email) || empty($password) || empty($role_id)) {
         $error = "All fields are required.";
     } else {
+        // RBAC Check: Ensure admin can't assign DEV or ADMIN roles manually
+        if ($user_role === 'admin') {
+            $role_check = fetch_one("SELECT role_name FROM roles WHERE role_id = ?", [$role_id]);
+            if (!$role_check || in_array(strtolower($role_check['role_name'] ?? ''), ['dev', 'admin'])) {
+                $error = "Unauthorized role assignment.";
+            }
+        }
+        
+        if (empty($error)) {
         // Check if email already exists
         $existing = fetch_one("SELECT user_id FROM users WHERE email = ?", [$email]);
         if ($existing) {
@@ -45,9 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+}
 
-// Fetch roles for the dropdown
-$roles = fetch_all("SELECT * FROM roles WHERE is_active = 1");
+// Fetch roles for the dropdown with RBAC filtering
+$sql_roles = "SELECT * FROM roles WHERE is_active = 1";
+if ($user_role === 'admin') {
+    $sql_roles .= " AND role_name NOT IN ('dev', 'admin')";
+}
+$roles = fetch_all($sql_roles);
 
 include_once __DIR__ . '/../../includes/header.php';
 ?>

@@ -20,6 +20,14 @@ if (!$user) {
     redirect('index.php', 'User not found.', 'danger');
 }
 
+// Security Check: Admin cannot edit DEV or other ADMIN accounts
+if ($user_role === 'admin') {
+    $target_role = fetch_one("SELECT role_name FROM roles WHERE role_id = ?", [$user['role_id']]);
+    if ($target_role && in_array(strtolower($target_role['role_name']), ['dev', 'admin'])) {
+        redirect(BASE_URL . 'index.php', 'Unauthorized access to restricted account.', 'danger');
+    }
+}
+
 $error = '';
 $success = '';
 
@@ -37,6 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (empty($full_name) || empty($email) || empty($role_id)) {
         $error = "Name, email and role are required.";
     } else {
+        // RBAC Validation: Admin cannot assign DEV or ADMIN roles manually
+        if ($user_role === 'admin') {
+            $role_check = fetch_one("SELECT role_name FROM roles WHERE role_id = ?", [$role_id]);
+            if (!$role_check || in_array(strtolower($role_check['role_name'] ?? ''), ['dev', 'admin'])) {
+                $error = "Unauthorized role assignment.";
+            }
+        }
+
+        if (empty($error)) {
         // Update user
         if (!empty($password)) {
             $hashed = password_hash($password, PASSWORD_DEFAULT);
@@ -52,11 +69,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               [$_SESSION['user_id'], "User: $full_name"]);
 
         redirect('index.php', "User <strong>$full_name</strong> updated successfully!");
+        }
     }
 }
 
-// Fetch roles for the dropdown
-$roles = fetch_all("SELECT * FROM roles WHERE is_active = 1");
+// Fetch roles for the dropdown with RBAC filtering
+$sql_roles = "SELECT * FROM roles WHERE is_active = 1";
+if ($user_role === 'admin') {
+    $sql_roles .= " AND role_name NOT IN ('dev', 'admin')";
+}
+$roles = fetch_all($sql_roles);
 
 include_once __DIR__ . '/../../includes/header.php';
 ?>

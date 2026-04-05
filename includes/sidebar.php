@@ -54,10 +54,16 @@ $current_script = $_SERVER['PHP_SELF'];
         <?php endif; ?>
 
         <div class="sidebar-label">Analytics</div>
-        <?php $is_reports = (strpos($current_script, '/modules/reports/') !== false); ?>
+        <?php $is_reports = (strpos($current_script, '/modules/reports/index.php') !== false); ?>
         <a href="<?php echo BASE_URL; ?>modules/reports/index.php" class="sidebar-link <?php echo $is_reports ? 'active' : ''; ?>">
             <i class="bi bi-graph-up text-danger opacity-100"></i> Reports
         </a>
+        <?php if ($user_role === 'dev' || $user_role === 'admin'): ?>
+            <?php $is_tmp = (strpos($current_script, 'template_builder.php') !== false); ?>
+            <a href="<?php echo BASE_URL; ?>modules/reports/template_builder.php" class="sidebar-link <?php echo $is_tmp ? 'active' : ''; ?>">
+                <i class="bi bi-file-earmark-pdf text-info opacity-100"></i> Document Designer
+            </a>
+        <?php endif; ?>
         
         <?php if ($user_role === 'dev' || $user_role === 'admin'): ?>
         <div class="sidebar-label">Organization</div>
