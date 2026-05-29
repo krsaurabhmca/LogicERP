@@ -4,10 +4,11 @@ header('Content-Type: application/json');
 check_auth();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $sub_id = $_POST['submission_id'] ?? '';
+    $sub_id_enc = $_POST['submission_id'] ?? '';
+    $sub_id = decrypt_id($sub_id_enc);
 
     if (empty($sub_id)) {
-        echo json_encode(['status' => 'error', 'message' => 'Missing Submission ID.']);
+        echo json_encode(['status' => 'error', 'message' => 'Missing or invalid Submission ID.']);
         exit;
     }
 

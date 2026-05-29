@@ -132,6 +132,9 @@ include_once __DIR__ . '/../../includes/header.php';
                 <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="text" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Search entries..." style="width: 200px;">
             </div>
+            <button id="bulkDeleteBtn" class="btn btn-danger shadow-sm px-3 d-none" onclick="bulkDeleteSub()">
+                <i class="bi bi-trash-fill me-2" id="bulkDeleteBtn"></i> <span id="selectionCount">0</span> Selected
+            </button>
             <button class="btn btn-primary shadow-sm px-3" onclick="openAddModal()">
                 <i class="bi bi-plus-lg me-2"></i> New
             </button>
@@ -153,6 +156,9 @@ include_once __DIR__ . '/../../includes/header.php';
             <table class="table table-hover align-middle mb-0" id="moduleTable">
                 <thead>
                     <tr>
+                        <th class="px-3 py-2 border-0" style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
                         <th class="px-3 py-2 border-0" style="width: 60px;">ID</th>
                         <?php foreach($fields as $field): ?>
                             <th class="py-2 border-0"><?php echo strtoupper($field['field_label']); ?></th>
@@ -164,7 +170,10 @@ include_once __DIR__ . '/../../includes/header.php';
                     <?php foreach ($submissions as $sub): 
                         $sid_enc = encrypt_id($sub['submission_id']);
                     ?>
-                    <tr>
+                    <tr id="row_<?php echo $sid_enc; ?>">
+                        <td class="px-3 py-2">
+                             <input type="checkbox" class="form-check-input row-select" value="<?php echo $sid_enc; ?>">
+                        </td>
                         <td class="px-3 py-2 fw-600 text-muted small">#<?php echo $sub['submission_id']; ?></td>
                         <?php foreach($fields as $field): 
                             $val = $data_map[$sub['submission_id']][$field['field_id']] ?? '-';
@@ -277,7 +286,7 @@ include_once __DIR__ . '/../../includes/header.php';
                                 if(!empty($field['dynamic_module']) && !empty($field['dynamic_label_column'])) {
                                     $mod_id = $field['dynamic_module'];
                                     $label_field_id = $field['dynamic_label_column'];
-                                    $results = fetch_all("SELECT s.submission_id as id, d.field_value as val FROM form_submissions s JOIN form_data d ON s.submission_id = d.submission_id WHERE s.form_id = ? AND d.field_id = ?", [$mod_id, $label_field_id]);
+                                    $results = fetch_all("SELECT s.submission_id as id, d.field_value as val FROM form_submissions s JOIN form_data d ON s.submission_id = d.submission_id WHERE s.form_id = ? AND d.field_id = ? AND s.deleted_at IS NULL", [$mod_id, $label_field_id]);
                                     foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
                                 } elseif(!empty(trim($field['dynamic_query'] ?? ''))) {
                                     $results = fetch_all($field['dynamic_query']);
@@ -404,7 +413,7 @@ window.deleteSub = null;
 $(function() {
     // 1. Initialize DataTable
     var table = $('#moduleTable').DataTable({
-        "order": [[0, "desc"]], 
+        "order": [[1, "desc"]], 
         "pageLength": 10,
         "dom": '<"d-flex justify-content-between align-items-center mb-3"Bf>rtip',
         "buttons": [
@@ -520,6 +529,46 @@ $(function() {
                 }
             }, 'json').fail(function() {
                 alert('Server error while deleting.');
+            });
+        }
+    };
+
+    // 5. BULK ACTIONS
+    $('#selectAll').on('change', function() {
+        $('.row-select').prop('checked', $(this).is(':checked')).trigger('change');
+    });
+
+    $(document).on('change', '.row-select', function() {
+        var count = $('.row-select:checked').length;
+        $('#selectionCount').text(count);
+        if (count > 0) {
+            $('#bulkDeleteBtn').removeClass('d-none');
+        } else {
+            $('#bulkDeleteBtn').addClass('d-none');
+        }
+    });
+
+    window.bulkDeleteSub = function() {
+        var ids = [];
+        $('.row-select:checked').each(function() {
+            ids.push($(this).val());
+        });
+
+        if(ids.length === 0) return;
+
+        if(confirm('Are you sure you want to delete ' + ids.length + ' selected entries? This action is permanent.')) {
+            $('#bulkDeleteBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Deleting...');
+            
+            $.post('ajax_bulk_delete.php', {ids: ids}, function(res) {
+                if(res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert(res.message);
+                    $('#bulkDeleteBtn').prop('disabled', false).html('<i class="bi bi-trash-fill me-2"></i> ' + ids.length + ' Selected');
+                }
+            }, 'json').fail(function() {
+                alert('Server error while performing bulk operations.');
+                $('#bulkDeleteBtn').prop('disabled', false).html('<i class="bi bi-trash-fill me-2"></i> ' + ids.length + ' Selected');
             });
         }
     };

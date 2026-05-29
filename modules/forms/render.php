@@ -26,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $submission_id = $conn->insert_id;
         foreach ($fields as $field) {
             $val = $_POST[$field['field_name']] ?? '';
+            // Handle array values (checkboxes, multi-select)
+            if (is_array($val)) {
+                $val = implode(', ', $val);
+            }
             query("INSERT INTO form_data (submission_id, field_id, field_value) VALUES (?, ?, ?)", [$submission_id, $field['field_id'], $val]);
         }
         $success = "Submission successful!";
@@ -89,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $results = fetch_all("SELECT s.submission_id as id, d.field_value as val 
                                                          FROM form_submissions s 
                                                          JOIN form_data d ON s.submission_id = d.submission_id 
-                                                         WHERE s.form_id = ? AND d.field_id = ?", [$mod_id, $label_field_id]);
+                                                         WHERE s.form_id = ? AND d.field_id = ? AND s.deleted_at IS NULL", [$mod_id, $label_field_id]);
                                     
                                     foreach($results as $row) $options[] = ['id' => $row['id'], 'val' => $row['val']];
                                 } elseif(!empty(trim($field['dynamic_query'] ?? ''))) {

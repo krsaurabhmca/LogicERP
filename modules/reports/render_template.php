@@ -49,6 +49,9 @@ foreach ($raw_data as $row) {
     $data_map[$table_alias . '.' . $norm_field] = $val; // Namespaced
 }
 
+// 3. Initialize Content
+$html = $template['html_content'] ?? '';
+
 // 4. Multi-Table DATA LOOPS (High Performance Processing)
 $connections = json_decode($template['data_connections'] ?? '[]', true);
 if (!empty($connections)) {
@@ -56,13 +59,31 @@ if (!empty($connections)) {
         $tag = $cn['mname'];
         $loop_regex = "/\{\{#{$tag}\}\}(.*?)\{\{\/{$tag}\}\}/s";
         
+        // --- A. Handle flat tokens (outside loops) ---
+        // Fetch the most recent linked record for flat prefix matching (e.g. {{trasnports.area}})
+        $first_child = fetch_one("SELECT d.submission_id FROM form_data d 
+                                 JOIN form_submissions s ON d.submission_id = s.submission_id
+                                 WHERE d.field_id = ? AND d.field_value = ? AND s.deleted_at IS NULL 
+                                 ORDER BY s.created_at DESC LIMIT 1", [$cn['cfield'], $submission_id]);
+        
+        if ($first_child) {
+            $cs_data = fetch_all("SELECT f.field_name, d.field_value FROM form_data d 
+                                 JOIN form_fields f ON d.field_id = f.field_id 
+                                 WHERE d.submission_id = ?", [$first_child['submission_id']]);
+            foreach ($cs_data as $row) {
+                $norm_field = strtolower(str_replace(' ', '_', $row['field_name']));
+                $data_map[$tag . '.' . $norm_field] = $row['field_value'];
+            }
+        }
+
+        // --- B. Handle collections (loops) ---
         if (preg_match_all($loop_regex, $html, $matches)) {
             foreach ($matches[1] as $index => $sub_template) {
-                // Fetch linked records
-                $child_id_field = $cn['cfield'] ?? 'submission_id'; // Normally submission_id
-                
-                // Fetch all Linked Submissions
-                $child_subs = fetch_all("SELECT d.submission_id FROM form_data d WHERE d.field_id = ? AND d.field_value = ?", [$cn['cfield'], $submission_id]);
+                // Fetch all Linked Submissions (Filtered by child field pointing to parent ID)
+                $child_subs = fetch_all("SELECT d.submission_id FROM form_data d 
+                                         JOIN form_submissions s ON d.submission_id = s.submission_id
+                                         WHERE d.field_id = ? AND d.field_value = ? AND s.deleted_at IS NULL
+                                         ORDER BY s.created_at ASC", [$cn['cfield'], $submission_id]);
                 
                 $loop_html = "";
                 foreach ($child_subs as $cs) {

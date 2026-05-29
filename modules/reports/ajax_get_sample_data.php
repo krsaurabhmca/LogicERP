@@ -10,7 +10,7 @@ if (!$form_id) {
 }
 
 // 1. Fetch Latest Submission
-$sub = fetch_one("SELECT submission_id, created_at FROM form_submissions WHERE form_id = ? ORDER BY created_at DESC LIMIT 1", [$form_id]);
+$sub = fetch_one("SELECT submission_id, created_at FROM form_submissions WHERE form_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 1", [$form_id]);
 
 if (!$sub) {
     echo json_encode(['status' => 'success', 'data' => []]);

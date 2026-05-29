@@ -50,6 +50,13 @@ function decrypt_id($val) {
     if (empty($val)) return null;
     // Restore Base64 characters
     $val = str_replace(['-', '_'], ['+', '/'], $val);
+    
+    // Add missing padding if necessary
+    $rem = strlen($val) % 4;
+    if ($rem) {
+        $val .= str_repeat('=', 4 - $rem);
+    }
+    
     $data = base64_decode($val);
     if (!$data) return null;
     $iv_length = openssl_cipher_iv_length(ENC_METHOD);
